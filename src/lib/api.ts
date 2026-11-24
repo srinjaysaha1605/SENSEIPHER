@@ -124,6 +124,11 @@ export function extractValidationDetail(payload: unknown): string | null {
   return null;
 }
 
+export interface DisplayKeyPair {
+  label: string;
+  value: string;
+}
+
 export function formatCandidateKey(key: CandidateKey): string {
   if (key === null || key === undefined) {
     return 'None reported';
@@ -148,6 +153,72 @@ export function formatCandidateKey(key: CandidateKey): string {
     return entries.map(([k, v]) => `${k} -> ${String(v)}`).join(' · ');
   }
   return String(key);
+}
+
+export function formatDisplayKey(key: CandidateKey, method?: string): DisplayKeyPair | null {
+  if (key === null || key === undefined) {
+    return null;
+  }
+
+  const normalizedMethod = (method ?? '').toLowerCase();
+
+  if (typeof key === 'string') {
+    const trimmed = key.trim();
+    return trimmed.length > 0 ? {label: 'Key', value: trimmed} : null;
+  }
+
+  if (typeof key === 'number') {
+    if (!Number.isFinite(key)) {
+      return null;
+    }
+    return {
+      label: normalizedMethod.includes('caesar') ? 'Shift' : 'Key',
+      value: String(key),
+    };
+  }
+
+  if (typeof key === 'object' && !Array.isArray(key)) {
+    const record = key as Record<string, unknown>;
+
+    if (typeof record.shift === 'number' && Number.isFinite(record.shift)) {
+      return {label: 'Shift', value: String(record.shift)};
+    }
+    if (typeof record.shift === 'string' && record.shift.trim().length > 0) {
+      return {label: 'Shift', value: record.shift.trim()};
+    }
+
+    if (typeof record.keyword === 'string' && record.keyword.trim().length > 0) {
+      return {label: 'Key', value: record.keyword.trim()};
+    }
+
+    if (
+      (typeof record.key === 'string' && record.key.trim().length > 0) ||
+      (typeof record.key === 'number' && Number.isFinite(record.key))
+    ) {
+      return {label: 'Key', value: String(record.key).trim()};
+    }
+  }
+
+  return null;
+}
+
+export function extractTechnicalKeyEntries(key: CandidateKey): DisplayKeyPair[] {
+  if (key === null || key === undefined) {
+    return [];
+  }
+  if (typeof key === 'string' || typeof key === 'number' || typeof key === 'boolean') {
+    return [{label: 'key', value: String(key)}];
+  }
+  if (Array.isArray(key)) {
+    return key.length > 0 ? [{label: 'key', value: key.map((item) => String(item)).join(', ')}] : [];
+  }
+  if (typeof key === 'object') {
+    return Object.entries(key as Record<string, unknown>).map(([k, v]) => ({
+      label: k,
+      value: Array.isArray(v) ? v.map((item) => String(item)).join(', ') : String(v ?? ''),
+    }));
+  }
+  return [];
 }
 
 function asFiniteNumber(value: unknown, fallback = 0): number {
