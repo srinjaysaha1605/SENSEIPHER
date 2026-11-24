@@ -1,6 +1,6 @@
 import {Check, ChevronDown, ChevronUp, Copy} from 'lucide-react';
 import {useEffect, useState} from 'react';
-import {formatCandidateKey} from '../lib/api';
+import {extractTechnicalKeyEntries, formatDisplayKey} from '../lib/api';
 import type {AnalyzeResponse, AttackCandidate} from '../types/api';
 
 interface AnalysisResultsProps {
@@ -80,7 +80,7 @@ function AlternativeMatchRow({
   index: number;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const formattedKey = formatCandidateKey(candidate.key);
+  const displayKey = formatDisplayKey(candidate.key, candidate.method);
   const panelId = `alt-match-panel-${index}`;
 
   return (
@@ -97,15 +97,12 @@ function AlternativeMatchRow({
             Match {index + 1}
           </span>
           <span className="text-[#d4d4d8]">{candidate.method}</span>
-          <span className="text-[#a1a1aa] break-all">
-            Key: <strong className="font-semibold text-[#e4e4e7]">{formattedKey}</strong>
-          </span>
-          <span className="text-[#a1a1aa] tabular-nums whitespace-nowrap">
-            Score:{' '}
-            <strong className="font-semibold text-[#e4e4e7]">
-              {candidate.language_score.toFixed(4)}
-            </strong>
-          </span>
+          {displayKey && (
+            <span className="text-[#a1a1aa] break-all">
+              {displayKey.label}:{' '}
+              <strong className="font-semibold text-[#e4e4e7]">{displayKey.value}</strong>
+            </span>
+          )}
         </div>
 
         <span className="inline-flex items-center gap-1.5 text-xs text-[#d4d4d8] whitespace-nowrap shrink-0">
@@ -145,6 +142,17 @@ export function AnalysisResults({result}: AnalysisResultsProps) {
   );
 
   const bestCandidate = result.attack.best_candidate;
+  const bestDisplayKey = bestCandidate
+    ? formatDisplayKey(bestCandidate.key, bestCandidate.method)
+    : null;
+
+  const technicalCandidates: Array<{label: string; candidate: AttackCandidate}> = [];
+  if (bestCandidate) {
+    technicalCandidates.push({label: 'Best match', candidate: bestCandidate});
+  }
+  result.attack.alternatives.forEach((candidate, index) => {
+    technicalCandidates.push({label: `Match ${index + 1}`, candidate});
+  });
 
   return (
     <div className="flex flex-col gap-6 fluid-reveal">
@@ -207,6 +215,49 @@ export function AnalysisResults({result}: AnalysisResultsProps) {
             ) : (
               <p className="mt-3 text-xs text-[#a1a1aa]">No ranking scores returned.</p>
             )}
+
+            <div className="mt-4 pt-3 border-t border-[#1e1e22] flex flex-col gap-2.5 text-xs">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 text-[#a1a1aa]">
+                <span className="font-semibold text-[#e4e4e7]">Solver parameters & scores</span>
+                <span className="tabular-nums">
+                  {result.attack.method} · {result.attack.candidate_count}{' '}
+                  {result.attack.candidate_count === 1 ? 'match checked' : 'matches checked'}
+                </span>
+              </div>
+
+              {technicalCandidates.length > 0 ? (
+                <div className="divide-y divide-[#1e1e22] border-t border-[#1e1e22]">
+                  {technicalCandidates.map(({label, candidate}, idx) => {
+                    const keyEntries = extractTechnicalKeyEntries(candidate.key);
+                    return (
+                      <div
+                        key={`${label}-${idx}`}
+                        className="py-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[#d4d4d8]">
+                          <span className="font-semibold text-[#f4f4f5]">{label}</span>
+                          <span className="text-[#a1a1aa]">{candidate.method}</span>
+                          {keyEntries.map((entry) => (
+                            <span key={entry.label} className="text-[#a1a1aa] break-all">
+                              {entry.label}:{' '}
+                              <strong className="font-semibold text-[#e4e4e7]">{entry.value}</strong>
+                            </span>
+                          ))}
+                        </div>
+                        <span className="text-[#a1a1aa] tabular-nums whitespace-nowrap">
+                          Score:{' '}
+                          <strong className="font-semibold text-[#f4f4f5]">
+                            {candidate.language_score.toFixed(4)}
+                          </strong>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-[#a1a1aa]">No candidate score details returned.</p>
+              )}
+            </div>
           </div>
         )}
       </section>
@@ -217,14 +268,7 @@ export function AnalysisResults({result}: AnalysisResultsProps) {
           <h2 id="attack-results-heading" className="font-display text-base font-bold text-[#f4f4f5]">
             Decoded matches
           </h2>
-          <div className="text-xs text-[#a1a1aa] tabular-nums">
-            <span>{result.attack.method}</span>
-            <span aria-hidden="true"> · </span>
-            <span>
-              {result.attack.candidate_count}{' '}
-              {result.attack.candidate_count === 1 ? 'match checked' : 'matches checked'}
-            </span>
-          </div>
+          <div className="text-xs text-[#a1a1aa]">{result.attack.method}</div>
         </div>
 
         <p className="mb-3 text-xs leading-relaxed text-[#a1a1aa] max-w-[65ch]">
@@ -240,20 +284,16 @@ export function AnalysisResults({result}: AnalysisResultsProps) {
                   <span aria-hidden="true">·</span>
                   <span>{bestCandidate.method}</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[#a1a1aa]">
-                  <span className="break-all">
-                    Key:{' '}
-                    <strong className="font-semibold text-[#f4f4f5]">
-                      {formatCandidateKey(bestCandidate.key)}
-                    </strong>
-                  </span>
-                  <span className="tabular-nums whitespace-nowrap">
-                    Score:{' '}
-                    <strong className="font-semibold text-[#f4f4f5]">
-                      {bestCandidate.language_score.toFixed(4)}
-                    </strong>
-                  </span>
-                </div>
+                {bestDisplayKey && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[#a1a1aa]">
+                    <span className="break-all">
+                      {bestDisplayKey.label}:{' '}
+                      <strong className="font-semibold text-[#f4f4f5]">
+                        {bestDisplayKey.value}
+                      </strong>
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="mt-3 flex flex-col sm:flex-row sm:items-start gap-3">
