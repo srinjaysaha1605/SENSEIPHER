@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import {
   ApiRequestError,
   countAlphabeticChars,
+  extractTechnicalKeyEntries,
   extractValidationDetail,
   formatCandidateKey,
+  formatDisplayKey,
   normalizeAnalyzeResponse,
   normalizeTopLetters,
   validateAnalyzeParams,
@@ -126,4 +128,17 @@ test('normalizeAnalyzeResponse rejects incomplete payloads instead of fabricatin
     () => normalizeAnalyzeResponse({}),
     (err: unknown) => err instanceof ApiRequestError && err.info.kind === 'server',
   );
+});
+
+test('formatDisplayKey formats Caesar and Vigenere keys clearly and defers technical params', () => {
+  assert.deepEqual(formatDisplayKey({shift: 3}, 'Caesar'), {label: 'Shift', value: '3'});
+  assert.deepEqual(
+    formatDisplayKey({keyword: 'cipher', estimated_period: 6}, 'Vigenere'),
+    {label: 'Key', value: 'cipher'},
+  );
+  assert.equal(formatDisplayKey({a: 19, b: 17}, 'Affine'), null);
+  assert.deepEqual(extractTechnicalKeyEntries({keyword: 'cipher', estimated_period: 6}), [
+    {label: 'keyword', value: 'cipher'},
+    {label: 'estimated_period', value: '6'},
+  ]);
 });
