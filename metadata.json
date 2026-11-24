@@ -1,0 +1,6 @@
+{
+  "name": "Senseipher",
+  "description": "Classical cipher analysis workspace for identifying cipher families, inspecting letter frequencies, and reviewing candidate plaintexts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
